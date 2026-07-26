@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Batch metrics from Airflow tasks. honor_labels is required: the pipeline
+  # sets its own `job` and grouping labels when pushing, and without this
+  # Prometheus would overwrite them with the gateway's own job name.
+  - job_name: pushgateway
+    honor_labels: true
+    static_configs:
+      - targets: ["pushgateway:9091"]
+
+  - job_name: quantfolio_api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:8000"]

@@ -1,0 +1,41 @@
+# Trading universe. Config-driven so the DAG never hardcodes tickers.
+# Liquid US large caps across sectors + SPY as the market benchmark.
+
+benchmark: SPY
+
+tickers:
+  - SPY   # S&P 500 ETF — benchmark
+  - AAPL  # tech
+  - MSFT
+  - NVDA
+  - GOOGL
+  - AMZN  # consumer discretionary
+  - JPM   # financials
+  - XOM   # energy
+  - JNJ   # healthcare
+  - UNH
+  - PG    # consumer staples
+  - HD
+  - CAT   # industrials
+  - NEE   # utilities
+
+# Exchange calendar used to decide which dates *should* have a bar.
+exchange: NYSE
+
+# Earliest date any backfill will reach for.
+backfill_start: "2015-01-01"
+
+# Feature parameters — kept here so the lookahead tests and the DAG read the
+# same windows, and so window changes never require a code edit.
+features:
+  sma_windows: [20, 60]
+  ema_span: 20
+  macd: {fast: 12, slow: 26, signal: 9}
+  rsi_window: 14
+  volatility_window: 20
+
+# Causal outlier clipping: rolling median +/- (mad_scale * rolling MAD).
+# Window is trailing-only; see transforms/cleaning.py.
+cleaning:
+  mad_window: 63
+  mad_scale: 8.0

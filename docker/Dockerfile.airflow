@@ -1,0 +1,21 @@
+# Airflow image with the quantfolio package installed, so DAG tasks import
+# project code directly instead of shelling out or duplicating logic.
+FROM apache/airflow:2.10.3-python3.11
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER airflow
+
+# Dependencies first: this layer is cached across source edits.
+COPY --chown=airflow:root pyproject.toml README.md /opt/quantfolio/
+COPY --chown=airflow:root src /opt/quantfolio/src
+
+# --no-deps is not used: Airflow pins many of the same libraries, so pip needs
+# to see both constraint sets at once and resolve them together.
+RUN pip install --no-cache-dir -e "/opt/quantfolio"
+
+ENV PYTHONPATH=/opt/quantfolio/src

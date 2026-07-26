@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv --version)",
+      "Bash(docker --version)",
+      "Bash(brew --version)",
+      "Bash(brew install *)",
+      "Bash(uv sync *)",
+      "Bash(uv run *)",
+      "Bash(sed -i '' 's/--extra apipytest/--extra api pytest/g; s/--extra apiruff/--extra api ruff/g' Makefile)",
+      "Bash(sed -n '/^test:/,$p' Makefile)",
+      "Bash(bash -n docker/init-aws.sh)",
+      "Bash(chmod +x docker/init-aws.sh scripts/backfill.py)"
+    ]
+  }
+}

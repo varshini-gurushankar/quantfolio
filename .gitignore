@@ -1,0 +1,42 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Airflow runtime
+logs/
+airflow.db
+airflow.cfg
+webserver_config.py
+standalone_admin_password.txt
+
+# MLflow / model artifacts
+mlruns/
+mlartifacts/
+*.pkl
+*.h5
+*.keras
+*.pt
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+
+# LocalStack
+volume/
+.localstack/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
