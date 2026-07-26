@@ -2,8 +2,8 @@
 COMPOSE := docker compose
 DAG := market_data_pipeline
 
-.PHONY: help up down restart logs ps build init test test-fast lint fmt trigger backfill \
-        psql s3-ls clean
+.PHONY: help up down restart logs ps build init test test-fast test-slow lint fmt \
+        trigger backfill train train-local drift psql s3-ls weights clean
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -15,6 +15,7 @@ up: ## Build and start the whole stack
 	@echo ""
 	@echo "  Airflow    http://localhost:8080  (airflow / airflow)"
 	@echo "  API        http://localhost:8000/docs"
+	@echo "  MLflow     http://localhost:5000"
 	@echo "  Grafana    http://localhost:3000  (admin / admin)"
 	@echo "  Prometheus http://localhost:9090"
 
@@ -47,8 +48,22 @@ backfill: ## Backfill a date range (make backfill START=2024-01-01 END=2024-03-0
 	$(COMPOSE) exec airflow-scheduler \
 		airflow dags backfill --start-date $(START) --end-date $(END) $(DAG)
 
+train: ## Train both frameworks in the stack, logging to the MLflow server
+	$(COMPOSE) exec airflow-scheduler python /opt/quantfolio/scripts/train.py
+
+train-local: ## Train outside Docker, logging to ./mlflow.db
+	uv run --extra ml --extra dev python scripts/train.py --local-mlflow
+
+drift: ## Demonstrate that the drift sensor fires (no infrastructure needed)
+	uv run --extra ml --extra dev python scripts/inject_drift.py --dry-run
+
 psql: ## Open a psql shell on the feature store
 	$(COMPOSE) exec postgres psql -U quantfolio -d quantfolio
+
+weights: ## Show the most recent portfolio weights
+	$(COMPOSE) exec postgres psql -U quantfolio -d quantfolio -c \
+		"SELECT ticker, ROUND(weight::numeric, 4) AS weight, method FROM portfolio_weights \
+		 WHERE as_of_date = (SELECT MAX(as_of_date) FROM portfolio_weights) ORDER BY weight DESC;"
 
 s3-ls: ## List the raw bucket in LocalStack
 	$(COMPOSE) exec localstack awslocal s3 ls s3://quantfolio-raw --recursive
@@ -56,8 +71,11 @@ s3-ls: ## List the raw bucket in LocalStack
 test: ## Run the full test suite
 	uv run --extra dev --extra api pytest
 
-test-fast: ## Run tests, skipping anything needing live infrastructure
-	uv run --extra dev --extra api pytest -m "not integration"
+test-fast: ## Run tests, skipping live infrastructure and network training
+	uv run --extra dev --extra api pytest -m "not integration and not slow"
+
+test-slow: ## Run only the tests that train real networks
+	uv run --extra dev --extra api --extra ml pytest -m slow
 
 lint: ## Check formatting and lint rules
 	uv run --extra dev --extra api ruff check src tests dags

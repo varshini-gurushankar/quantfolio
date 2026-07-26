@@ -29,6 +29,7 @@ x-airflow-common: &airflow-common
     S3_RAW_BUCKET: ${S3_RAW_BUCKET:-quantfolio-raw}
     S3_ARTIFACTS_BUCKET: ${S3_ARTIFACTS_BUCKET:-quantfolio-artifacts}
     PUSHGATEWAY_URL: http://pushgateway:9091
+    MLFLOW_TRACKING_URI: http://mlflow:5000
     ALPHA_VANTAGE_API_KEY: ${ALPHA_VANTAGE_API_KEY:-}
     UNIVERSE_PATH: /opt/quantfolio/config/universe.yml
   volumes:
@@ -141,6 +142,33 @@ services:
       - "8000:8000"
     depends_on:
       postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Experiment tracking and model registry. Backed by Postgres (so runs survive
+  # a container restart) with artifacts in LocalStack S3 (so model files live
+  # next to the raw data rather than inside a container's filesystem).
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.16.2
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      MLFLOW_S3_ENDPOINT_URL: http://localstack:4566
+    # psycopg2 and boto3 are not in the base MLflow image.
+    command: >
+      bash -c "pip install --no-cache-dir psycopg2-binary boto3 &&
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql+psycopg2://${POSTGRES_USER:-quantfolio}:${POSTGRES_PASSWORD:-quantfolio}@postgres:5432/mlflow
+      --default-artifact-root s3://${S3_ARTIFACTS_BUCKET:-quantfolio-artifacts}/mlflow"
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     restart: unless-stopped
 

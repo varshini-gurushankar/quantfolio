@@ -2726,9 +2726,8 @@ ml = [
     { name = "cvxpy" },
     { name = "mlflow" },
     { name = "scikit-learn" },
-    { name = "tensorflow", version = "2.16.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.12' and sys_platform == 'emscripten') or (platform_machine != 'arm64' and sys_platform == 'darwin') or (sys_platform != 'darwin' and sys_platform != 'emscripten')" },
+    { name = "tensorflow", version = "2.16.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12' or sys_platform != 'emscripten'" },
     { name = "tensorflow", version = "2.21.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12' and sys_platform == 'emscripten'" },
-    { name = "tensorflow-macos", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
     { name = "torch" },
 ]
 
@@ -2757,8 +2756,7 @@ requires-dist = [
     { name = "scikit-learn", marker = "extra == 'ml'", specifier = ">=1.4" },
     { name = "sqlalchemy", specifier = ">=1.4.36" },
     { name = "tenacity", specifier = ">=8.2" },
-    { name = "tensorflow", marker = "(platform_machine != 'arm64' and extra == 'ml') or (sys_platform != 'darwin' and extra == 'ml')", specifier = ">=2.16" },
-    { name = "tensorflow-macos", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'ml'", specifier = ">=2.16" },
+    { name = "tensorflow", marker = "extra == 'ml'", specifier = ">=2.16" },
     { name = "torch", marker = "extra == 'ml'", specifier = ">=2.2" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'api'", specifier = ">=0.29" },
     { name = "yfinance", specifier = ">=0.2.40" },
@@ -3180,18 +3178,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/43/9b/be27588352d7bd971696874db92d370f578715c17c0ccb27e4b13e16751e/tensorflow_io_gcs_filesystem-0.37.1-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:fe8dcc6d222258a080ac3dfcaaaa347325ce36a7a046277f6b3e19abc1efb3c5", size = 3479614, upload-time = "2024-07-01T23:44:32.316Z" },
     { url = "https://files.pythonhosted.org/packages/d3/46/962f47af08bd39fc9feb280d3192825431a91a078c856d17a78ae4884eb1/tensorflow_io_gcs_filesystem-0.37.1-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:fbb33f1745f218464a59cecd9a18e32ca927b0f4d77abd8f8671b645cc1a182f", size = 4842077, upload-time = "2024-07-01T23:44:33.86Z" },
     { url = "https://files.pythonhosted.org/packages/f0/9b/790d290c232bce9b691391cf16e95a96e469669c56abfb1d9d0f35fa437c/tensorflow_io_gcs_filesystem-0.37.1-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:286389a203a5aee1a4fa2e53718c661091aa5fea797ff4fa6715ab8436b02e6c", size = 5085733, upload-time = "2024-07-01T23:44:36.663Z" },
-]
-
-[[package]]
-name = "tensorflow-macos"
-version = "2.16.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "tensorflow", version = "2.16.2", source = { registry = "https://pypi.org/simple" } },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/c5/47dee312dde75b7f6c04af18287839cbede72418137ad9ed3c1965dad6ae/tensorflow_macos-2.16.2-cp311-cp311-macosx_12_0_arm64.whl", hash = "sha256:13687ed18ad93757b9a8b9b5a55c434cbadb142a354888ea28581b5d278338b7", size = 2135, upload-time = "2024-06-28T19:12:30.774Z" },
-    { url = "https://files.pythonhosted.org/packages/c3/8d/411bf034704893d35dee0b9825c7845a7c9be96417e8f97feca2ed8055bd/tensorflow_macos-2.16.2-cp312-cp312-macosx_12_0_arm64.whl", hash = "sha256:6948f046fa1ef4f4abcd480e0057de1dec95b97c38cf716018083173ee6dfa8e", size = 2134, upload-time = "2024-06-28T19:12:32.335Z" },
 ]
 
 [[package]]

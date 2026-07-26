@@ -10,7 +10,9 @@
       "Bash(sed -i '' 's/--extra apipytest/--extra api pytest/g; s/--extra apiruff/--extra api ruff/g' Makefile)",
       "Bash(sed -n '/^test:/,$p' Makefile)",
       "Bash(bash -n docker/init-aws.sh)",
-      "Bash(chmod +x docker/init-aws.sh scripts/backfill.py)"
+      "Bash(chmod +x docker/init-aws.sh scripts/backfill.py)",
+      "Bash(python3 -c \"import platform; print\\(platform.machine\\(\\), platform.python_version\\(\\)\\)\")",
+      "Bash(python3 -)"
     ]
   }
 }

@@ -103,4 +103,19 @@ model_metrics = Table(
     Column("logged_at", DateTime(timezone=True), server_default=func.now()),
 )
 
+# Out-of-sample predictions paired with what actually happened. This is what the
+# drift sensor measures: how the deployed model has been scoring lately, rather
+# than how it scored at training time.
+predictions_daily = Table(
+    "predictions_daily",
+    metadata,
+    Column("model_name", String(64), primary_key=True),
+    Column("ticker", String(16), primary_key=True),
+    Column("date", Date, primary_key=True),
+    Column("y_pred", Float, nullable=False),
+    Column("y_true", Float),
+    Column("run_id", String(64)),
+    Column("predicted_at", DateTime(timezone=True), server_default=func.now()),
+)
+
 TABLES = {t.name: t for t in metadata.tables.values()}

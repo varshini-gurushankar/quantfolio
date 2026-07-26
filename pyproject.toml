@@ -33,8 +33,9 @@ api = [
 ]
 ml = [
     "torch>=2.2",
-    "tensorflow>=2.16; sys_platform != 'darwin' or platform_machine != 'arm64'",
-    "tensorflow-macos>=2.16; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    # TF 2.16+ supports macOS arm64 from the main wheel; the old separate
+    # tensorflow-macos package is deprecated and no longer needed.
+    "tensorflow>=2.16",
     "scikit-learn>=1.4",
     "cvxpy>=1.4",
     "mlflow>=2.12",
@@ -61,6 +62,7 @@ pythonpath = ["src"]
 addopts = "-q"
 markers = [
     "integration: requires live Postgres/LocalStack (deselect with -m 'not integration')",
+    "slow: trains a real network; seconds rather than milliseconds",
 ]
 
 [tool.ruff]
