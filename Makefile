@@ -3,7 +3,11 @@ COMPOSE := docker compose
 DAG := market_data_pipeline
 
 .PHONY: help up down restart logs ps build init test test-fast test-slow lint fmt \
-        trigger backfill train train-local drift psql s3-ls weights clean
+        trigger backfill train train-local drift psql s3-ls weights clean \
+        loadtest predict tf-init tf-plan tf-apply tf-destroy tf-verify
+
+# terraform and opentofu read the same HCL; use whichever is installed.
+TF := $(shell command -v terraform 2>/dev/null || command -v tofu 2>/dev/null)
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -67,6 +71,37 @@ weights: ## Show the most recent portfolio weights
 
 s3-ls: ## List the raw bucket in LocalStack
 	$(COMPOSE) exec localstack awslocal s3 ls s3://quantfolio-raw --recursive
+
+predict: ## Check what the API is currently able to serve
+	@curl -s http://localhost:8000/predict/model/status | python3 -m json.tool
+	@curl -s http://localhost:8000/predict/AAPL | python3 -m json.tool
+
+loadtest: ## Measure p50/p95/p99 (make loadtest USERS=50 TIME=60s)
+	@mkdir -p results
+	uv run --extra dev locust -f scripts/locustfile.py \
+		--host http://localhost:8000 --headless \
+		-u $(or $(USERS),50) -r 10 -t $(or $(TIME),60s) \
+		--csv results/load
+	@echo "CSV written to results/load_stats.csv — quote these with the concurrency used"
+
+# --------------------------------------------------------------------------- #
+# terraform (works with terraform or opentofu)
+# --------------------------------------------------------------------------- #
+tf-init: ## Initialize the Terraform working directory
+	@test -n "$(TF)" || (echo "install terraform or opentofu first" && exit 1)
+	cd terraform && $(TF) init
+
+tf-plan: ## Show what would be created against LocalStack
+	cd terraform && $(TF) plan
+
+tf-apply: ## Really create the buckets in LocalStack
+	cd terraform && $(TF) apply -auto-approve
+
+tf-verify: ## Prove Terraform created the buckets
+	$(COMPOSE) exec localstack awslocal s3 ls
+
+tf-destroy: ## Tear the Terraform-managed resources back down
+	cd terraform && $(TF) destroy -auto-approve
 
 test: ## Run the full test suite
 	uv run --extra dev --extra api pytest

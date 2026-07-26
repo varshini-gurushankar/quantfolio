@@ -105,6 +105,40 @@ def push_sharpe(gross: float, net: float, volatility: float, as_of: str) -> None
     _push(registry, "quantfolio_strategy", {"as_of": as_of})
 
 
+def push_allocation(
+    drift: float,
+    concentration: float,
+    max_weight: float,
+    n_holdings: int,
+    as_of: str,
+) -> None:
+    """Portfolio composition metrics, pushed after each optimization.
+
+    ``drift`` is one-way turnover against the previous allocation. It is the
+    number that says whether the optimizer is tracking a genuinely changing
+    covariance or just chasing noise — a min-variance portfolio that reshuffles
+    30% of the book every month is paying costs for estimation error.
+    """
+    registry = CollectorRegistry()
+    Gauge(
+        "quantfolio_allocation_drift",
+        "One-way turnover versus the previous allocation",
+        registry=registry,
+    ).set(drift)
+    Gauge(
+        "quantfolio_allocation_concentration",
+        "Herfindahl index of the weights (1/N when equally weighted)",
+        registry=registry,
+    ).set(concentration)
+    Gauge("quantfolio_allocation_max_weight", "Largest single position", registry=registry).set(
+        max_weight
+    )
+    Gauge("quantfolio_allocation_holdings", "Number of positions held", registry=registry).set(
+        n_holdings
+    )
+    _push(registry, "quantfolio_strategy", {"as_of": as_of})
+
+
 @contextmanager
 def timed(label: str):
     """Time a block and hand the elapsed seconds back to the caller."""

@@ -7,8 +7,8 @@ guaranteeing that the number you computed for 16 March 2020 used only what was
 knowable on 16 March 2020. This project is built around that guarantee, and
 around proving it rather than asserting it.
 
-**Status:** Phases 1 (data platform) and 2 (research layer) complete. Phase 3
-(serving) is planned — see [Roadmap](#roadmap).
+**Status:** complete. Phase 1 data platform, Phase 2 research layer, Phase 3
+serving and infrastructure.
 
 ---
 
@@ -272,6 +272,46 @@ quiet on clean data:
 make drift
 ```
 
+### A served model is a bundle, not a weights file
+
+Weights alone are not deployable. Loaded with the wrong feature ordering or the
+wrong scaler, a model still returns a plausible-looking float — that is serving
+skew, and it is invisible without a check. So training writes a `metadata.json`
+next to the weights carrying the feature columns, the scaler statistics and the
+architecture hyperparameters, and the serving layer rebuilds the model from that
+manifest. An artifact without one is refused rather than served.
+
+The bundle describes the **final fold**, which is the model trained on the most
+history. Loading is cached across requests, because pulling from the registry
+and rebuilding a network takes seconds and would otherwise dominate the very
+latency this phase exists to measure.
+
+### Measured latency, not claimed latency
+
+The API is long-lived, so Prometheus scrapes it directly at `/metrics` — no
+Pushgateway, which is exactly the distinction that makes the batch jobs push and
+this service expose.
+
+Latency is a **histogram**, not an average. A p99 of 2s and a p50 of 20ms
+average out to something that looks fine while one request in a hundred is bad.
+Labels are the route template (`/predict/{ticker}`), never the raw path, or
+there would be one time series per ticker.
+
+Any latency figure quoted anywhere should come from `make loadtest`, with the
+concurrency and endpoint mix that produced it:
+
+```bash
+make loadtest USERS=50 TIME=60s
+```
+
+### One image, for now
+
+The API container carries the ML stack because `/predict` runs a real forward
+pass. That is one deployable instead of two, at the cost of a large image. The
+better answer once model and API release cadences diverge is a separate
+inference service with the API proxying to it — noted here rather than pretended
+away.
+
 ---
 
 ## Layout
@@ -294,7 +334,8 @@ dags/
   training_pipeline.py        train -> optimize -> backtest
   drift_sensor.py             rolling OOS MSE breach -> trigger retraining
 monitoring/                   Prometheus config, provisioned Grafana dashboards
-scripts/                      backfill, train, inject_drift
+terraform/                    S3 buckets applied against LocalStack
+scripts/                      backfill, train, inject_drift, locustfile
 tests/                        including test_no_lookahead.py
 ```
 
@@ -314,6 +355,15 @@ together in the UI, so they are reviewable and survive a volume wipe.
 | `GET /health` | Liveness plus data freshness — a service backed by a store that stopped updating a week ago is not healthy |
 | `GET /prices/{ticker}` | Daily OHLCV, optional `start` / `end` / `limit` |
 | `GET /features/{ticker}` | Engineered features, optional `start` / `end` / `limit` |
+| `GET /predict/{ticker}` | Next-day return from the registered model |
+| `GET /predict/model/status` | What is loaded, and whether it beats the baseline |
+| `GET /portfolio` | Latest optimized weights, with concentration |
+| `GET /metrics` | Prometheus scrape endpoint |
+
+`/predict` and `/portfolio` return **503** when no model has been registered or
+no weights have been computed. That is deliberate: the service is healthy, there
+is simply nothing to serve yet, and a 500 would send you debugging the wrong
+layer.
 
 ---
 
@@ -344,24 +394,40 @@ Four files carry most of the weight:
 
 ---
 
+## Infrastructure as code
+
+`terraform/` really applies against LocalStack — the S3 buckets it declares are
+buckets you can then list:
+
+```bash
+make tf-init && make tf-apply && make tf-verify
+```
+
+It manages both buckets, versioning on raw (the replay guarantee enforced by the
+bucket, not only by application code), public-access blocks, and lifecycle rules
+that age raw parquet into cheaper storage while expiring disposable staging data.
+
+The ECR repository, IAM role and Lambda service definition in `ecs.tf` sit behind
+`enable_compute`, which **defaults to false**, because LocalStack Community does
+not implement them reliably. They are `terraform validate`-clean and are the real
+target shape for AWS. A config that "applies" without creating anything is worse
+than one that says so.
+
+Either `terraform` or `opentofu` works; the Makefile uses whichever is installed.
+
+---
+
 ## Results
 
-Fill this in from your own run — `make train` prints the table. Report it as
-printed, including the `beats_baseline` column.
+Fill this in from your own run — `make train` prints the model table and
+`make loadtest` prints the latency percentiles. Report both as printed,
+including the `beats_baseline` column.
 
 The expected outcome on daily equity returns is that neither model reliably
 beats the zero-prediction baseline. Daily returns are close to unforecastable
 from technical features alone, and a system honest enough to say so is worth
 more than one tuned until a number looks good. The pipeline is the product; the
 model is the workload.
-
----
-
-## Roadmap
-
-**Phase 3 — serving.** Prediction and portfolio endpoints, a locust load test so
-any latency figure is measured rather than guessed, a Sharpe gauge in Grafana,
-and Terraform applied against LocalStack.
 
 The honest framing throughout: the pipeline is the product, the model is the
 workload. This system is built to measure a strategy truthfully, not to claim

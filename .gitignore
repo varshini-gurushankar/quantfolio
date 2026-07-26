@@ -40,3 +40,8 @@ volume/
 .DS_Store
 .idea/
 .vscode/
+
+# Phase 3
+results/
+mlflow.db
+mlartifacts/

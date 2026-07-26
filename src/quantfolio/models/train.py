@@ -11,9 +11,10 @@ the registry promotes.
 
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -36,6 +37,21 @@ logger = logging.getLogger(__name__)
 EXPERIMENT_NAME = "quantfolio_return_prediction"
 
 
+def _bundle_metadata(result: TrainingResult, weights_filename: str) -> dict:
+    """The manifest that makes a saved model loadable by the serving layer."""
+    return {
+        "model_name": result.model_name,
+        "framework": result.framework,
+        "weights_file": weights_filename,
+        "model_params": result.model_params,
+        "preprocessing": result.preprocessing.as_dict() if result.preprocessing else None,
+        "oos_mse": result.overall.mse,
+        "baseline_mse": result.overall.baseline_mse,
+        "beats_baseline": result.overall.beats_baseline,
+        "trained_through": str(result.folds[-1].split.test_end) if result.folds else None,
+    }
+
+
 def _target_scaling(y_train: np.ndarray) -> tuple[float, float]:
     """Mean and standard deviation of the training fold's target, only.
 
@@ -55,12 +71,41 @@ class FoldResult:
 
 
 @dataclass
+class Preprocessing:
+    """Everything needed to turn raw features into model input at serving time.
+
+    Weights alone are not a servable model. Without the exact feature ordering
+    and the scaler statistics the model was trained against, inference silently
+    produces nonsense — so this travels with the artifact rather than being
+    reconstructed from memory later.
+
+    The values come from the *final* fold, which is the one trained on the most
+    history and therefore the one worth deploying.
+    """
+
+    feature_columns: list[str]
+    feature_mean: list[float]
+    feature_std: list[float]
+    target_mean: float
+    target_std: float
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: dict) -> Preprocessing:
+        return cls(**payload)
+
+
+@dataclass
 class TrainingResult:
     model_name: str
     framework: str
     folds: list[FoldResult]
     overall: Metrics
     run_id: str | None = None
+    preprocessing: Preprocessing | None = None
+    model_params: dict = field(default_factory=dict)
 
     def predictions(self) -> pd.DataFrame:
         """Out-of-sample predictions across every fold, in date order."""
@@ -142,6 +187,16 @@ def walk_forward_train(
             FoldResult(split=split, metrics=metrics, history=history, predictions=predictions)
         )
 
+        # Overwritten each fold, so this ends up describing the final one — the
+        # fold with the most training history, and the model left in memory.
+        preprocessing = Preprocessing(
+            feature_columns=list(feature_columns),
+            feature_mean=mean.tolist(),
+            feature_std=std.tolist(),
+            target_mean=y_mu,
+            target_std=y_sigma,
+        )
+
     if not results:
         raise RuntimeError("no fold produced a usable result")
 
@@ -151,6 +206,8 @@ def walk_forward_train(
         framework=model.framework,
         folds=results,
         overall=overall,
+        preprocessing=preprocessing,
+        model_params=model.params(),
     )
     logger.info("OVERALL %s", result.summary())
     return result
@@ -207,6 +264,14 @@ def run_experiment(
 
             model_path = model.save(str(Path(tmpdir) / model.name))
             mlflow.log_artifact(model_path, artifact_path="model")
+
+            # The weights are useless without the feature order and scaler that
+            # produced them, so the metadata ships in the same artifact folder.
+            meta_path = Path(tmpdir) / "metadata.json"
+            meta_path.write_text(
+                json.dumps(_bundle_metadata(result, Path(model_path).name), indent=2)
+            )
+            mlflow.log_artifact(str(meta_path), artifact_path="model")
 
         if register:
             _register(model.name, parent.info.run_id, result)

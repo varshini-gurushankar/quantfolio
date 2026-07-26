@@ -1,0 +1,259 @@
+{
+  "uid": "quantfolio-strategy",
+  "title": "QuantFolio — Strategy & Serving",
+  "tags": ["quantfolio", "strategy", "serving"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-30d", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Strategy",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Sharpe (net of costs)",
+      "description": "The number worth quoting. Net, not gross — gross Sharpe ignores what it costs to trade the strategy.",
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "quantfolio_sharpe_net", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 0 },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 1.0 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "area" }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Cost drag on Sharpe",
+      "description": "Gross minus net. How much of the strategy's apparent edge is consumed by turnover.",
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "quantfolio_sharpe_gross - quantfolio_sharpe_net",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 3,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.2 },
+              { "color": "red", "value": 0.5 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Portfolio volatility",
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "quantfolio_portfolio_volatility", "refId": "A", "instant": true }
+      ],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "decimals": 2 } },
+      "options": { "colorMode": "value", "graphMode": "area" }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Allocation drift",
+      "description": "One-way turnover versus the previous rebalance. Persistent high drift means the optimizer is chasing noise in the covariance estimate.",
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "quantfolio_allocation_drift", "refId": "A", "instant": true }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.2 },
+              { "color": "red", "value": 0.4 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Sharpe: gross vs net",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "quantfolio_sharpe_gross", "legendFormat": "gross", "refId": "A" },
+        { "expr": "quantfolio_sharpe_net", "legendFormat": "net", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "pointSize": 6 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "net" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "gross" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }]
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Allocation drift and concentration",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "quantfolio_allocation_drift", "legendFormat": "drift", "refId": "A" },
+        {
+          "expr": "quantfolio_allocation_concentration",
+          "legendFormat": "concentration (HHI)",
+          "refId": "B"
+        },
+        { "expr": "quantfolio_allocation_max_weight", "legendFormat": "max weight", "refId": "C" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "row",
+      "title": "Serving",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Request latency percentiles (all endpoints)",
+      "description": "Computed from the histogram. p99 is the number that describes the worst experience users actually get; an average would hide it.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(quantfolio_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(quantfolio_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(quantfolio_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "p99 latency by endpoint",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(quantfolio_request_duration_seconds_bucket[5m])) by (le, endpoint))",
+          "legendFormat": "{{endpoint}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 }
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Request rate by status",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "sum(rate(quantfolio_requests_total[5m])) by (status)",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "stacking": { "mode": "normal" } }
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Model inference latency",
+      "description": "The forward pass alone, excluding HTTP and database time — so a slow /predict can be attributed to the right layer.",
+      "gridPos": { "h": 7, "w": 12, "x": 12, "y": 23 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(quantfolio_prediction_duration_seconds_bucket[5m])) by (le, model))",
+          "legendFormat": "p50 {{model}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(quantfolio_prediction_duration_seconds_bucket[5m])) by (le, model))",
+          "legendFormat": "p99 {{model}}",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "fillOpacity": 5, "lineWidth": 2 }
+        }
+      }
+    }
+  ]
+}

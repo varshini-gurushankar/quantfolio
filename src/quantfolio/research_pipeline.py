@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 import pandas as pd
 
 from quantfolio.config import get_settings
-from quantfolio.metrics.push import push_sharpe
+from quantfolio.metrics.push import push_allocation, push_sharpe
 from quantfolio.models.drift import (
     detect_drift,
     load_recent_predictions,
@@ -171,7 +171,22 @@ def task_optimize_portfolio(
         raise RuntimeError(f"need at least 2 assets to optimize, got {returns.shape[1]}")
 
     result = optimize(returns, max_weight=max_weight, as_of=exec_date)
+
+    # Measured against the previous allocation, and therefore before this one
+    # overwrites it in the database.
+    drift = allocation_drift(result.weights)
     rows = store_weights(result)
+
+    weights = result.weights
+    concentration = float((weights**2).sum())
+
+    push_allocation(
+        drift=drift,
+        concentration=concentration,
+        max_weight=float(weights.max()),
+        n_holdings=int((weights > 1e-6).sum()),
+        as_of=exec_date.isoformat(),
+    )
 
     return {
         "execution_date": exec_date.isoformat(),
@@ -181,7 +196,31 @@ def task_optimize_portfolio(
         "expected_return": result.expected_return,
         "status": result.status,
         "shrinkage": result.shrinkage,
+        "allocation_drift": drift,
+        "concentration": concentration,
     }
+
+
+def allocation_drift(new_weights: pd.Series, engine=None) -> float:
+    """One-way turnover between the stored allocation and a new one.
+
+    Returns 1.0 when there is no previous allocation, since building the book
+    from cash is a full turnover.
+    """
+    from quantfolio.serving.predictor import latest_weights
+
+    try:
+        previous = latest_weights(engine=engine)
+    except Exception as exc:  # noqa: BLE001 - drift is a metric, not a gate
+        logger.warning("could not read previous weights: %s", exc)
+        return float("nan")
+
+    if previous.empty:
+        return 1.0
+
+    old = previous.set_index("ticker")["weight"]
+    aligned_old, aligned_new = old.align(new_weights, fill_value=0.0)
+    return float((aligned_new - aligned_old).abs().sum() / 2.0)
 
 
 def task_backtest(

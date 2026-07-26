@@ -30,6 +30,9 @@ dependencies = [
 api = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
+    # The API is long-lived, so Prometheus scrapes it directly rather than
+    # going through the Pushgateway the batch jobs use.
+    "prometheus-client>=0.20",
 ]
 ml = [
     "torch>=2.2",

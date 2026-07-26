@@ -1,5 +1,11 @@
-# API service. Slim by design: it only reads Postgres, so none of the ML stack
-# is installed here.
+# API service.
+#
+# From Phase 3 this image also carries the ML stack, because /predict runs a
+# real forward pass through the model pulled from the MLflow registry. That is a
+# deliberate trade-off: one deployable instead of two, at the cost of a large
+# image. The alternative — a separate inference service, with the API proxying
+# to it — is the right call once model and API release cadences diverge, and is
+# noted as such in the README rather than pretended away.
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -17,7 +23,7 @@ COPY pyproject.toml README.md ./
 COPY src ./src
 COPY config ./config
 
-RUN pip install --no-cache-dir ".[api]"
+RUN pip install --no-cache-dir ".[api,ml]"
 
 # Non-root: the API is the only container in this stack exposed to a client.
 RUN useradd --create-home --uid 1000 appuser && chown -R appuser /app

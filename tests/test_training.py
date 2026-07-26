@@ -9,14 +9,12 @@ models to confirm the interface holds.
 
 from __future__ import annotations
 
-from typing import Any
-
 import numpy as np
 import pandas as pd
 import pytest
+from helpers import RecordingModel
 
-from quantfolio.models.base import Model
-from quantfolio.models.datasets import TARGET, build_supervised, transform
+from quantfolio.models.datasets import build_supervised
 from quantfolio.models.train import compare, rolling_oos_mse, walk_forward_train
 from quantfolio.transforms.features import compute_features_by_ticker
 
@@ -24,41 +22,6 @@ from quantfolio.transforms.features import compute_features_by_ticker
 @pytest.fixture
 def dataset(multi_ticker_frame: pd.DataFrame) -> pd.DataFrame:
     return build_supervised(compute_features_by_ticker(multi_ticker_frame))
-
-
-class RecordingModel(Model):
-    """A least-squares fit that records what each fold was shown."""
-
-    name = "recording"
-    framework = "test"
-
-    def __init__(self) -> None:
-        self.coef: np.ndarray | None = None
-        self.fit_calls: list[dict] = []
-        self.reset_calls = 0
-
-    def params(self) -> dict[str, Any]:
-        return {"model": self.name}
-
-    def prepare(self, frame, feature_columns, mean, std):
-        x = transform(frame, feature_columns, mean, std)
-        y = frame[TARGET].to_numpy(dtype=np.float64)
-        return x, y, frame[["ticker", "date"]].reset_index(drop=True)
-
-    def fit(self, x, y, validation_split: float = 0.1):
-        self.fit_calls.append({"n": len(x), "y_mean": float(np.mean(y)), "y_std": float(np.std(y))})
-        self.coef, *_ = np.linalg.lstsq(x, y, rcond=None)
-        return {"epochs_run": 1}
-
-    def predict(self, x):
-        return x @ self.coef
-
-    def save(self, path: str) -> str:
-        return path
-
-    def reset(self) -> None:
-        self.reset_calls += 1
-        self.coef = None
 
 
 # --------------------------------------------------------------------------- #

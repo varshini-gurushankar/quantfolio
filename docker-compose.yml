@@ -138,6 +138,12 @@ services:
       POSTGRES_PORT: "5432"
       POSTGRES_DB: ${POSTGRES_DB:-quantfolio}
       UNIVERSE_PATH: /app/config/universe.yml
+      # /predict pulls the registered model, whose artifacts live in S3.
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_S3_ENDPOINT_URL: http://localstack:4566
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-test}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-test}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
     ports:
       - "8000:8000"
     depends_on:
